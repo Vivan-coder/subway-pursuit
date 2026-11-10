@@ -2,6 +2,8 @@
 
 An endless runner where you are the cop chasing the kid.
 
+**Play it now: https://vivan-coder.github.io/subway-pursuit/**
+
 ## Play
 
 Open `index.html` in any modern browser. No build step, no dependencies.
