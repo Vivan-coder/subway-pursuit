@@ -32,3 +32,11 @@ Open `index.html` in any modern browser. No build step, no dependencies.
 - Cones (small stumble)
 - Oil slicks (sluggish steering)
 - Gauntlet rows that chain a jump and a roll
+
+## Pickups
+
+- Turbo: invincible and fast, smashes through obstacles
+- Magnet: pulls coins toward you
+- Shield: absorbs one hit
+- Taser: stuns the kid and closes the gap
+- Donut: closes the gap and adds bonus points
