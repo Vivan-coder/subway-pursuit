@@ -69,3 +69,15 @@ python -m http.server 8000
 ## License
 
 MIT, see [LICENSE](LICENSE).
+
+## Levels
+
+| # | Name | Theme | Notes |
+| --- | --- | --- | --- |
+| 1 | Sunset Station | Golden hour | Gentle warm-up |
+| 2 | Neon Night | Neon city | Faster kid, more attacks |
+| 3 | Rainy Docks | Rain | Mini-boss: Skate King (2 tackles) |
+| 4 | Storm Yard | Storm and lightning | Double throws, gauntlet rows |
+| 5 | Midnight Showdown | Blood-red night | Final boss: Big Brat (4 tackles) |
+
+Catch the kid to clear a level and unlock the next one. Progress is saved in `localStorage`.
