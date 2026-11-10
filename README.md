@@ -78,7 +78,7 @@ MIT, see [LICENSE](LICENSE).
 | 2 | Neon Night | Neon city | Faster kid, more attacks |
 | 3 | Rainy Docks | Rain | Mini-boss: Skate King (2 tackles) |
 | 4 | Storm Yard | Storm and lightning | Double throws, gauntlet rows |
-| 5 | Midnight Showdown | Blood-red night | Final boss: Big Brat (4 tackles) |
+| 5 | Midnight Showdown | Blood-red night | Final boss: Big Brat (3 tackles) |
 
 Levels unlock strictly one after the other: you must catch the kid to unlock the next level. Progress is saved in `localStorage`.
 
