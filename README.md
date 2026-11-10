@@ -45,3 +45,15 @@ Open `index.html` in any modern browser. No build step, no dependencies.
 
 He is not nice. He throws trash cans, bottles, paint balloons and skateboards at you,
 drops oil and cones, dashes ahead to show off, and taunts you the whole way.
+
+## Run locally with a server
+
+```
+npm start
+```
+
+or
+
+```
+python -m http.server 8000
+```
