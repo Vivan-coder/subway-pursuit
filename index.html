@@ -158,7 +158,7 @@ const sfx = {
   bust() { tone(900, 0.5, 'sine', 0.1, 500); tone(1400, 0.4, 'sine', 0.08, -400, 0.15); tone(660, 0.12, 'square', 0.05, 0, 0.55); tone(990, 0.3, 'square', 0.05, 0, 0.68); },
   over() { tone(330, 0.25, 'sawtooth', 0.09, -120); tone(247, 0.25, 'sawtooth', 0.09, -90, 0.22); tone(165, 0.5, 'sawtooth', 0.09, -60, 0.44); },
   siren(hi) { tone(hi ? 900 : 650, 0.22, 'sine', 0.035); },
-  taunt() { if (SPEECH && voiceOn) return; tone(700, 0.07, 'square', 0.03); tone(520, 0.1, 'square', 0.03, 0, 0.07); },
+  taunt() { tone(700, 0.07, 'square', 0.03); tone(520, 0.1, 'square', 0.03, 0, 0.07); },
   thunder() { tone(90, 0.9, 'sawtooth', 0.09, -50, 0.25); tone(60, 1.1, 'square', 0.05, -25, 0.3); }
 };
 
@@ -225,41 +225,12 @@ const MISSION_POOL = [
   { key: 'mult', txt: n => `Reach a x${n} combo`, n: [2, 2, 3] }
 ];
 
-/* ---------- the kid's voice (Web Speech API) ---------- */
-const KID_VOICE = [
-  { p: 1.7, r: 1.12, g: 'm' }, { p: 1.9, r: 1.15, g: 'f' }, { p: 0.7, r: 0.98, g: 'm' }, { p: 1.75, r: 1.1, g: 'f' }, { p: 0.45, r: 0.86, g: 'm' }
-];
+/* ---------- the kid's spoken lines (shown as speech bubbles) ---------- */
 const KID_LINES = {
   intro: ["Hehe, try and catch me!", "You again? Too slow, cop!", "I'm the Skate King! Nobody catches me!", "A little storm won't stop me!", "Big Brat runs this city! Bow down!"],
   caught: ["Aw man, you got me!", "No way! That's not fair!", "My skateboard! Noooo!", "Ugh, fine. You win this time!", "Impossible! I'll remember this, cop!"],
   won: ["Hahaha! Too slow, officer!", "Told you! Bye bye!", "Better luck next time, loser!", "Easy! Go eat a donut!"]
 };
-const SPEECH = 'speechSynthesis' in window;
-let speechVoices = [], voiceOn = true;
-try { voiceOn = localStorage.getItem('subwayPursuitVoice') !== '0'; } catch (e) {}
-function loadVoices() { if (SPEECH) speechVoices = speechSynthesis.getVoices().filter(v => /^en/i.test(v.lang)); }
-if (SPEECH) { loadVoices(); try { speechSynthesis.addEventListener('voiceschanged', loadVoices); } catch (e) {} }
-const MALE_V = /david|mark|guy|ryan|george|james|daniel|alex|fred|thomas|brian|eric|christopher|\bmale\b/i;
-const FEMALE_V = /zira|jenny|aria|hazel|susan|samantha|karen|victoria|moira|libby|sonia|michelle|emma|ava|\bfemale\b/i;
-function pickVoice(g) {                                // prefer natural/neural voices that match the kid's gender
-  if (!speechVoices.length) return null;
-  const want = g === 'm' ? MALE_V : FEMALE_V, avoid = g === 'm' ? FEMALE_V : MALE_V;
-  const score = v => (/natural|neural|online/i.test(v.name) ? 4 : 0) + (/google/i.test(v.name) ? 2 : 0) + (/en-US|en-GB/i.test(v.lang) ? 1 : 0) + (want.test(v.name) ? 3 : 0) - (avoid.test(v.name) ? 3 : 0);
-  return speechVoices.slice().sort((a, b) => score(b) - score(a))[0];
-}
-function speak(text) {
-  if (!SPEECH || muted || !voiceOn) return;
-  const clean = String(text).replace(/[^\w\s'!?.,-]/g, '').replace(/\s+/g, ' ').trim();   // drop emoji
-  if (!clean) return;
-  try {
-    const kv = KID_VOICE[level] || KID_VOICE[0];
-    const u = new SpeechSynthesisUtterance(clean);
-    const v = pickVoice(kv.g); if (v) u.voice = v;
-    u.pitch = kv.p; u.rate = kv.r; u.volume = 1;
-    speechSynthesis.cancel(); speechSynthesis.speak(u);
-  } catch (e) {}
-}
-function stopSpeech() { if (SPEECH) { try { speechSynthesis.cancel(); } catch (e) {} } }
 
 /* ---------- persistent progress: wallet, upgrades, boosts ---------- */
 const SAVEKEY = 'subwayPursuitSave3';           // v3: economy rebalanced (old wallet/upgrades are not carried over)
@@ -523,7 +494,6 @@ function hit(it) {
 
 function gameOver(reason) {
   state = 'over'; why = reason; overT = 0; paintT = 0;
-  speak(KID_LINES.won[Math.random() * KID_LINES.won.length | 0]);
   const sc = scoreNow();
   if (sc > best) { best = sc; try { localStorage.setItem('subwayPursuitBest', String(best)); } catch (e) {} }
   sfx.over();
@@ -541,7 +511,6 @@ function bossTackle() {
 }
 function startBust() {
   state = 'bust'; bustT = 2.4; kid.caught = true;
-  speak(KID_LINES.caught[level]);
   burst(kid.x, 1.2, gap, '#ffd23f', 24, 5);
   sfx.bust();
 }
@@ -556,7 +525,7 @@ function applyLevel() {
   if (save.inv.shieldstart > 0) { save.inv.shieldstart--; p.shield = TUNE.shield(save.up.shield); notes.push('🔰 Ready Shield'); }
   if (save.inv.headstart > 0) { save.inv.headstart--; turboMax = turbo = 3 + 0.5 * save.up.turbo; notes.push('🏁 Head Start'); }
   rollMissions();
-  kid.say = KID_LINES.intro[level]; kid.sayLeft = 2.8; kid.spoken = '';
+  kid.say = KID_LINES.intro[level]; kid.sayLeft = 2.8;
   if (save.inv.doubler > 0) { save.inv.doubler--; dbl = true; notes.push('💰 Coin Doubler'); }
   if (notes.length) popup(notes.join('  '), '#ffe27a');
   persist();
@@ -625,7 +594,6 @@ function selectLevel(v) {
   selLevel = n; init(selLevel); sfx.move();
 }
 function togglePause() {
-  stopSpeech();
   if (state === 'play') state = 'paused';
   else if (state === 'paused') state = 'play';
 }
@@ -736,8 +704,7 @@ function updateKid(dt) {
       kid.say = t; kid.sayLeft = 1.9; sfx.taunt();
     }
   }
-  if (kid.sayLeft > 0 && kid.say && kid.say !== kid.spoken) { speak(kid.say); kid.spoken = kid.say; }   // voice-over
-  if (kid.sayLeft > 0) kid.sayLeft -= dt; else kid.spoken = '';
+  if (kid.sayLeft > 0) kid.sayLeft -= dt;
 }
 
 /* ---------- update ---------- */
@@ -1674,7 +1641,7 @@ function drawMenu() {
     ['↑  /  W  /  Space', 'Jump over barriers & pits'],
     ['↓  /  S', 'Roll under bars (fast-fall)'],
     ['Swipe', 'Same moves on touch screens'],
-    ['P / Esc', `Pause   M: mute   V: voice ${voiceOn ? 'ON' : 'OFF'}`]
+    ['P / Esc', 'Pause        M: mute']
   ];
   rows.forEach((r, i) => {
     T(r[0], 58, 494 + i * 22, 13, '#ffd23f', 'left');
@@ -1805,14 +1772,7 @@ addEventListener('keydown', e => {
   const k = e.key;
   if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' '].includes(k)) e.preventDefault();
   if (e.repeat) return;
-  if (k === 'm' || k === 'M') { muted = !muted; if (muted) stopSpeech(); return; }
-  if ((k === 'v' || k === 'V') && state !== 'shop') {
-    voiceOn = !voiceOn; if (!voiceOn) stopSpeech();
-    try { localStorage.setItem('subwayPursuitVoice', voiceOn ? '1' : '0'); } catch (e) {}
-    if (voiceOn) speak('Voice on. Try to catch me!');
-    popup(voiceOn ? '🎙 Voice ON' : '🎙 Voice OFF', '#cfe3ff');
-    return;
-  }
+  if (k === 'm' || k === 'M') { muted = !muted; return; }
   if ((state === 'play' || state === 'paused') && (k === 'p' || k === 'P' || k === 'Escape')) { togglePause(); return; }
   if (state === 'menu') {
     if (k === 'ArrowLeft' || k === 'a' || k === 'A') selectLevel(selLevel - 1);
@@ -1902,7 +1862,7 @@ requestAnimationFrame(frame);
 // tiny hook for automated testing
 window.__game = { get state() { return state; }, get gap() { return gap; }, get score() { return scoreNow(); }, get level() { return level; }, get boss() { return boss; }, get hp() { return bossHP; }, get theme() { return LEVELS[level].name; }, save,
   get kidInTrain() { return !!trainUnder(kid.x, gap) && kid.y < 2.9; }, get kidOnRoof() { return kid.y > 2.9 && !!trainUnder(kid.x, gap); }, get kidY() { return kid.y; },
-  giveJetpack() { items.push({ type: 'jetpack', lane: p.lane, x: laneX(p.lane), z: 0.2, y: 1, len: 0 }); }, get jetOn() { return jetOn; }, get missions() { return mis.map(m => m.def.txt(m.n)); }, get speechOK() { return SPEECH; },
+  giveJetpack() { items.push({ type: 'jetpack', lane: p.lane, x: laneX(p.lane), z: 0.2, y: 1, len: 0 }); }, get jetOn() { return jetOn; }, get missions() { return mis.map(m => m.def.txt(m.n)); },
   start, move, jump, roll: rollAct, setGap: v => { gap = v; }, newGame, toMenu, buy, shopDone, openShop, selectLevel, levelComplete, setWallet: v => { save.wallet = v; }, get shield() { return p.shield; }, get turbo() { return turbo; } };
 })();
 </script>

@@ -95,7 +95,7 @@ Power-ups are intentionally modest, so maxing everything takes many runs.
 
 ## More features
 
-- Voiced kid: he actually speaks his taunts using the browser's speech synthesis (V toggles voice, M mutes everything)
+- The kid taunts you constantly in speech bubbles
 - Jetpack pickup: fly over everything for a few seconds
 - Coin combo multiplier (up to x5)
 - Two missions per level that pay bonus coins
