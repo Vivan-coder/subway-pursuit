@@ -158,7 +158,7 @@ const sfx = {
   bust() { tone(900, 0.5, 'sine', 0.1, 500); tone(1400, 0.4, 'sine', 0.08, -400, 0.15); tone(660, 0.12, 'square', 0.05, 0, 0.55); tone(990, 0.3, 'square', 0.05, 0, 0.68); },
   over() { tone(330, 0.25, 'sawtooth', 0.09, -120); tone(247, 0.25, 'sawtooth', 0.09, -90, 0.22); tone(165, 0.5, 'sawtooth', 0.09, -60, 0.44); },
   siren(hi) { tone(hi ? 900 : 650, 0.22, 'sine', 0.035); },
-  taunt() { tone(700, 0.07, 'square', 0.03); tone(520, 0.1, 'square', 0.03, 0, 0.07); },
+  taunt() { if (SPEECH && voiceOn) return; tone(700, 0.07, 'square', 0.03); tone(520, 0.1, 'square', 0.03, 0, 0.07); },
   thunder() { tone(90, 0.9, 'sawtooth', 0.09, -50, 0.25); tone(60, 1.1, 'square', 0.05, -25, 0.3); }
 };
 
@@ -216,34 +216,96 @@ const LEVELS = [
 ];
 const LV = () => LEVELS[level];
 
+/* ---------- missions (per level, pay coins) ---------- */
+const MISSION_POOL = [
+  { key: 'coins', txt: n => `Collect ${n} coins`, n: [20, 28, 36] },
+  { key: 'jumps', txt: n => `Jump ${n} times`, n: [5, 7, 9] },
+  { key: 'rolls', txt: n => `Roll ${n} times`, n: [4, 5, 7] },
+  { key: 'power', txt: n => `Grab ${n} power-up${n > 1 ? 's' : ''}`, n: [1, 2, 3] },
+  { key: 'mult', txt: n => `Reach a x${n} combo`, n: [2, 2, 3] }
+];
+
+/* ---------- the kid's voice (Web Speech API) ---------- */
+const KID_VOICE = [
+  { p: 1.7, r: 1.12, g: 'm' }, { p: 1.9, r: 1.15, g: 'f' }, { p: 0.7, r: 0.98, g: 'm' }, { p: 1.75, r: 1.1, g: 'f' }, { p: 0.45, r: 0.86, g: 'm' }
+];
+const KID_LINES = {
+  intro: ["Hehe, try and catch me!", "You again? Too slow, cop!", "I'm the Skate King! Nobody catches me!", "A little storm won't stop me!", "Big Brat runs this city! Bow down!"],
+  caught: ["Aw man, you got me!", "No way! That's not fair!", "My skateboard! Noooo!", "Ugh, fine. You win this time!", "Impossible! I'll remember this, cop!"],
+  won: ["Hahaha! Too slow, officer!", "Told you! Bye bye!", "Better luck next time, loser!", "Easy! Go eat a donut!"]
+};
+const SPEECH = 'speechSynthesis' in window;
+let speechVoices = [], voiceOn = true;
+try { voiceOn = localStorage.getItem('subwayPursuitVoice') !== '0'; } catch (e) {}
+function loadVoices() { if (SPEECH) speechVoices = speechSynthesis.getVoices().filter(v => /^en/i.test(v.lang)); }
+if (SPEECH) { loadVoices(); try { speechSynthesis.addEventListener('voiceschanged', loadVoices); } catch (e) {} }
+const MALE_V = /david|mark|guy|ryan|george|james|daniel|alex|fred|thomas|brian|eric|christopher|\bmale\b/i;
+const FEMALE_V = /zira|jenny|aria|hazel|susan|samantha|karen|victoria|moira|libby|sonia|michelle|emma|ava|\bfemale\b/i;
+function pickVoice(g) {                                // prefer natural/neural voices that match the kid's gender
+  if (!speechVoices.length) return null;
+  const want = g === 'm' ? MALE_V : FEMALE_V, avoid = g === 'm' ? FEMALE_V : MALE_V;
+  const score = v => (/natural|neural|online/i.test(v.name) ? 4 : 0) + (/google/i.test(v.name) ? 2 : 0) + (/en-US|en-GB/i.test(v.lang) ? 1 : 0) + (want.test(v.name) ? 3 : 0) - (avoid.test(v.name) ? 3 : 0);
+  return speechVoices.slice().sort((a, b) => score(b) - score(a))[0];
+}
+function speak(text) {
+  if (!SPEECH || muted || !voiceOn) return;
+  const clean = String(text).replace(/[^\w\s'!?.,-]/g, '').replace(/\s+/g, ' ').trim();   // drop emoji
+  if (!clean) return;
+  try {
+    const kv = KID_VOICE[level] || KID_VOICE[0];
+    const u = new SpeechSynthesisUtterance(clean);
+    const v = pickVoice(kv.g); if (v) u.voice = v;
+    u.pitch = kv.p; u.rate = kv.r; u.volume = 1;
+    speechSynthesis.cancel(); speechSynthesis.speak(u);
+  } catch (e) {}
+}
+function stopSpeech() { if (SPEECH) { try { speechSynthesis.cancel(); } catch (e) {} } }
+
 /* ---------- persistent progress: wallet, upgrades, boosts ---------- */
-const SAVEKEY = 'subwayPursuitSave2';
+const SAVEKEY = 'subwayPursuitSave3';           // v3: economy rebalanced (old wallet/upgrades are not carried over)
 const save = { wallet: 0, unlocked: 0, up: { turbo: 0, magnet: 0, shield: 0, taser: 0, donut: 0, cardio: 0, lucky: 0 }, inv: { headstart: 0, shieldstart: 0, doubler: 0 } };
 try {
   const s = JSON.parse(localStorage.getItem(SAVEKEY) || 'null');
+  if (!s) {                                           // keep level progress from the old save, nothing else
+    const old = JSON.parse(localStorage.getItem('subwayPursuitSave2') || 'null');
+    if (old) save.unlocked = clamp(old.unlocked | 0, 0, 4);
+  }
   if (s) {
     save.wallet = s.wallet | 0; save.unlocked = clamp(s.unlocked | 0, 0, 4);
     for (const k in save.up) save.up[k] = clamp((s.up && s.up[k]) | 0, 0, 5);
-    for (const k in save.inv) save.inv[k] = clamp((s.inv && s.inv[k]) | 0, 0, 9);
+    for (const k in save.inv) save.inv[k] = clamp((s.inv && s.inv[k]) | 0, 0, 5);
   }
 } catch (e) {}
 function persist() { try { localStorage.setItem(SAVEKEY, JSON.stringify(save)); } catch (e) {} }
 addEventListener('beforeunload', persist);
 
 const MAXUP = 5;
+/* Power-up tuning by upgrade tier l (0..5). Deliberately modest: upgrades are a long-term goal. */
+const r1 = v => Math.round(v * 10) / 10;
+const TUNE = {
+  turbo: l => 4 + 0.75 * l,            // seconds of invincible speed
+  magnet: l => 7 + l,                  // seconds
+  shield: l => 1 + (l >> 1),           // hits absorbed (1..3)
+  taser: l => 5 + l,                   // metres of gap removed
+  taserStun: l => r1(1.6 + 0.2 * l),
+  donut: l => r1(2 + 0.5 * l),         // metres of gap removed
+  cardio: l => r1(0.4 + 0.05 * l),     // metres removed per coin
+  lucky: l => 7 + l                    // % chance of a pickup per row
+};
 const SHOP = [
-  { id: 'turbo', kind: 'up', icon: '🚨', name: 'Turbo', desc: l => `${6 + 1.5 * l}s of invincible speed` },
-  { id: 'magnet', kind: 'up', icon: '🧲', name: 'Magnet', desc: l => `${9 + 2 * l}s, wider pull` },
-  { id: 'shield', kind: 'up', icon: '🛡️', name: 'Shield', desc: l => `absorbs ${1 + l} hit${l ? 's' : ''}` },
-  { id: 'taser', kind: 'up', icon: '⚡', name: 'Taser', desc: l => `-${7 + 1.5 * l} m, ${(2.2 + 0.3 * l).toFixed(1)}s stun` },
-  { id: 'donut', kind: 'up', icon: '🍩', name: 'Donut', desc: l => `closes ${3 + l} m` },
-  { id: 'cardio', kind: 'up', icon: '👟', name: 'Cardio', desc: l => `each coin closes ${(0.5 + 0.1 * l).toFixed(1)} m` },
-  { id: 'lucky', kind: 'up', icon: '🍀', name: 'Lucky Badge', desc: l => `${(10 + 2.5 * l).toFixed(1).replace('.0', '')}% pickup chance per row` },
-  { id: 'headstart', kind: 'inv', icon: '🚀', name: 'Head Start', desc: () => 'start next level with Turbo', cost: 60 },
-  { id: 'shieldstart', kind: 'inv', icon: '🔰', name: 'Ready Shield', desc: () => 'start next level shielded', cost: 40 },
-  { id: 'doubler', kind: 'inv', icon: '💰', name: 'Coin Doubler', desc: () => 'coins worth x2 for a level', cost: 80 }
+  { id: 'turbo', kind: 'up', icon: '🚨', name: 'Turbo', desc: l => `${TUNE.turbo(l)}s of invincible speed` },
+  { id: 'magnet', kind: 'up', icon: '🧲', name: 'Magnet', desc: l => `${TUNE.magnet(l)}s, wider pull` },
+  { id: 'shield', kind: 'up', icon: '🛡️', name: 'Shield', desc: l => `absorbs ${TUNE.shield(l)} hit${TUNE.shield(l) > 1 ? 's' : ''}` },
+  { id: 'taser', kind: 'up', icon: '⚡', name: 'Taser', desc: l => `-${TUNE.taser(l)} m, ${TUNE.taserStun(l)}s stun` },
+  { id: 'donut', kind: 'up', icon: '🍩', name: 'Donut', desc: l => `closes ${TUNE.donut(l)} m` },
+  { id: 'cardio', kind: 'up', icon: '👟', name: 'Cardio', desc: l => `each coin closes ${TUNE.cardio(l)} m` },
+  { id: 'lucky', kind: 'up', icon: '🍀', name: 'Lucky Badge', desc: l => `${TUNE.lucky(l)}% pickup chance per row` },
+  { id: 'headstart', kind: 'inv', icon: '🏁', name: 'Head Start', desc: () => 'start next level with Turbo', cost: 150 },
+  { id: 'shieldstart', kind: 'inv', icon: '🔰', name: 'Ready Shield', desc: () => 'start next level shielded', cost: 100 },
+  { id: 'doubler', kind: 'inv', icon: '💰', name: 'Coin Doubler', desc: () => 'coins worth x2 for a level', cost: 200 }
 ];
-const shopCost = it => it.kind === 'up' ? 30 * (save.up[it.id] + 1) : it.cost;
+const UPCOST = [100, 220, 400, 650, 1000];             // price of the next tier
+const shopCost = it => it.kind === 'up' ? UPCOST[save.up[it.id]] : it.cost;
 const SHOP_Y0 = 150, ROW_H = 46, ROW_STEP = 52;
 const shopRowY = i => SHOP_Y0 + i * ROW_STEP + (i >= 7 ? 28 : 0);
 const SHOP_BTN = { x: 90, y: 716, w: 300, h: 54 };
@@ -254,9 +316,9 @@ const HIT_TAUNTS = ["LOL! Face-plant! 🤣", "Ha! Loser!", "Ouch? Good! 🤣", "
 const BOSS_TAUNTS = ["You'll NEVER catch me!", "I own these tracks, cop!", "Call your mommy!", "Bow down, officer!", "Is this your first day?!", "My lawyer is 12 and BETTER than you!"];
 const NEON = ['#ff3d9a', '#35e0ff', '#9cff3d'];
 const TRAIN_COLORS = ['#2f80ed', '#d64545', '#27ae60', '#8e44ad', '#e67e22'];
-const PICK = new Set(['coin', 'turbo', 'magnet', 'shield', 'taser', 'donut']);
-const EMO = { turbo: '🚨', magnet: '🧲', shield: '🛡️', taser: '⚡', donut: '🍩' };
-const GLOW = { turbo: '74,163,255', magnet: '255,90,90', shield: '120,220,255', taser: '255,235,60', donut: '255,150,200' };
+const PICK = new Set(['coin', 'turbo', 'magnet', 'shield', 'taser', 'donut', 'jetpack']);
+const EMO = { turbo: '🚨', magnet: '🧲', shield: '🛡️', taser: '⚡', donut: '🍩', jetpack: '🚀' };
+const GLOW = { turbo: '74,163,255', magnet: '255,90,90', shield: '120,220,255', taser: '255,235,60', donut: '255,150,200', jetpack: '255,150,60' };
 
 const STONES = Array.from({ length: 260 }, () => ({ x: rnd(-3.8, 3.8), z: Math.random() * 140, c: Math.random(), r: rnd(0.03, 0.07) }));
 const STARS =Array.from({ length: 60 }, () => ({ x: Math.random() * W, y: Math.random() * HZ * 0.55, s: Math.random() < 0.2 ? 2 : 1, a: 0.3 + Math.random() * 0.6 }));
@@ -276,7 +338,8 @@ let state = 'menu';               // menu | play | paused | bust | over | shop |
 let theme = THEMES[0];
 let lvIntro = 0, lightT = 0, lightCd = 5, dustT = 0, selLevel = Math.min(save.unlocked, 4);
 let shopSel = 0, shopFrom = 'menu', shopMsg = '', shopMsgT = 0, lastReward = 0, victoryT = 0;
-let dbl = false, turboMax = 6, magnetMax = 9;
+let dbl = false, turboMax = 4, magnetMax = 7;
+let jet = 0, jetMax = 4.5, jetOn = false, jetCur = 36, combo = 0, comboT = 0, maxMult = 1, mis = [], menuMsg = '', menuMsgT = 0;
 let S, dist, bonus, coins, arrests, level, gap, hitT, grace, slowT, turbo, magnet, shake, flash;
 let paintT = 0, popT = 0, popTxt = '', popCol = '#fff', splats = [];
 let boss = false, bossHP = 0, bossMax = 3, bossIntro = 0;
@@ -289,7 +352,8 @@ try { best = parseInt(localStorage.getItem('subwayPursuitBest') || '0', 10) || 0
 function init(lv) {
   level = lv || 0; theme = LEVELS[level].theme;
   S = 14; dist = 0; bonus = 0; coins = 0; arrests = 0;
-  turboMax = 6; magnetMax = 9; dbl = false; lvIntro = 0; lightT = 0; lightCd = rnd(3, 6); dustT = 0;
+  turboMax = 4; magnetMax = 7; dbl = false; lvIntro = 0; lightT = 0; lightCd = rnd(3, 6); dustT = 0;
+  jet = 0; jetOn = false; combo = 0; comboT = 0; maxMult = 1; mis = [];
   gap = 14; hitT = 0; grace = 0; slowT = 0; turbo = 0; magnet = 0; shake = 0; flash = 0;
   bustT = 0; overT = 0; why = '';
   paintT = 0; popT = 0; splats = [];
@@ -369,8 +433,8 @@ function spawnRow(z) {
     for (let l = 0; l < 3; l++) for (let i = 0; i < 4; i++) addCoin(l, z + i * 1.8);
     rowLen = 7;
   }
-  if (Math.random() < 0.1 + 0.025 * save.up.lucky) {
-    const type = ['turbo', 'magnet', 'shield', 'taser', 'donut', 'donut'][Math.random() * 6 | 0];
+  if (Math.random() < TUNE.lucky(save.up.lucky) / 100) {
+    const type = ['turbo', 'magnet', 'shield', 'taser', 'donut', 'jetpack'][Math.random() * 6 | 0];
     items.push({ type, lane: lanes[0], x: laneX(lanes[0]), z: z + rowLen + 6, y: 1, len: 0 });
   }
   return rowLen;
@@ -423,13 +487,13 @@ function move(d) {
   sfx.move();
 }
 function jump() {
-  if (state !== 'play') return;
-  if (p.y <= 0.01) { p.vy = 11.5; p.y = 0.001; p.roll = 0; p.rollLand = false; sfx.jump(); }
+  if (state !== 'play' || jetOn) return;
+  if (p.y <= 0.01) { p.vy = 11.5; p.y = 0.001; p.roll = 0; p.rollLand = false; sfx.jump(); missionAdd('jumps', 1); }
 }
 function rollAct() {
-  if (state !== 'play') return;
+  if (state !== 'play' || jetOn) return;
   if (p.y > 0.01) { p.vy = -20; p.rollLand = true; }
-  else { p.roll = 0.65; p.rollT = 0; sfx.roll(); }
+  else { p.roll = 0.65; p.rollT = 0; sfx.roll(); missionAdd('rolls', 1); }
 }
 
 /* ---------- hit handling ---------- */
@@ -450,6 +514,7 @@ function hit(it) {
     return;
   }
   if (hitT > 0) { gameOver('crash'); return; }
+  combo = 0; comboT = 0;
   hitT = 5; grace = 1.0; slowT = 0.9; gap += 4; shake = 0.45; flash = 0.35;
   sfx.hit();
   burst(p.x, p.y + 0.9, 0.5, '#ffffff', 14, 4);
@@ -458,6 +523,7 @@ function hit(it) {
 
 function gameOver(reason) {
   state = 'over'; why = reason; overT = 0; paintT = 0;
+  speak(KID_LINES.won[Math.random() * KID_LINES.won.length | 0]);
   const sc = scoreNow();
   if (sc > best) { best = sc; try { localStorage.setItem('subwayPursuitBest', String(best)); } catch (e) {} }
   sfx.over();
@@ -475,6 +541,7 @@ function bossTackle() {
 }
 function startBust() {
   state = 'bust'; bustT = 2.4; kid.caught = true;
+  speak(KID_LINES.caught[level]);
   burst(kid.x, 1.2, gap, '#ffd23f', 24, 5);
   sfx.bust();
 }
@@ -486,13 +553,27 @@ function applyLevel() {
   boss = L.boss > 0; bossMax = L.boss; bossHP = L.boss;
   lvIntro = 3.2; bossIntro = boss ? 3.2 : 0;
   const notes = [];
-  if (save.inv.shieldstart > 0) { save.inv.shieldstart--; p.shield = 1 + save.up.shield; notes.push('🔰 Ready Shield'); }
-  if (save.inv.headstart > 0) { save.inv.headstart--; turboMax = turbo = 6 + 1.5 * save.up.turbo; notes.push('🚀 Head Start'); }
+  if (save.inv.shieldstart > 0) { save.inv.shieldstart--; p.shield = TUNE.shield(save.up.shield); notes.push('🔰 Ready Shield'); }
+  if (save.inv.headstart > 0) { save.inv.headstart--; turboMax = turbo = 3 + 0.5 * save.up.turbo; notes.push('🏁 Head Start'); }
+  rollMissions();
+  kid.say = KID_LINES.intro[level]; kid.sayLeft = 2.8; kid.spoken = '';
   if (save.inv.doubler > 0) { save.inv.doubler--; dbl = true; notes.push('💰 Coin Doubler'); }
   if (notes.length) popup(notes.join('  '), '#ffe27a');
   persist();
   if (boss) sfx.siren(true);
 }
+function rollMissions() {
+  const tier = Math.min(2, level >> 1);
+  mis = shuffle(MISSION_POOL.slice()).slice(0, 2).map(def => ({ def, n: def.n[tier], prog: 0, done: false, reward: 15 + 10 * level }));
+}
+function missionCheck(m) {
+  if (m.done || m.prog < m.n) return;
+  m.done = true; save.wallet += m.reward; persist();
+  popup(`✅ MISSION DONE  +${m.reward} coins`, '#7dffa0'); sfx.power();
+}
+function missionAdd(key, v) { for (const m of mis) if (!m.done && m.def.key === key) { m.prog = Math.min(m.n, m.prog + v); missionCheck(m); } }
+function missionMax(key, v) { for (const m of mis) if (!m.done && m.def.key === key) { m.prog = Math.min(m.n, Math.max(m.prog, v)); missionCheck(m); } }
+const comboMult = () => 1 + Math.min(4, Math.floor(combo / 8));
 function newGame(lv, carry) {
   ensureAudio();
   const c = carry || { bonus: 0, dist: 0, arrests: 0 };
@@ -501,12 +582,12 @@ function newGame(lv, carry) {
   applyLevel();
   state = 'play';
 }
-function start() { newGame(selLevel); }
+function start() { newGame(Math.min(selLevel, save.unlocked)); }
 function toMenu() { selLevel = clamp(selLevel, 0, save.unlocked); init(selLevel); state = 'menu'; }
 
 function levelComplete() {
   arrests++;
-  lastReward = 40 + 30 * level;
+  lastReward = 30 + 20 * level;
   save.wallet += lastReward;
   bonus += 1000 * (level + 1) + (boss ? 2000 : 0);
   save.unlocked = Math.max(save.unlocked, Math.min(4, level + 1));
@@ -528,7 +609,7 @@ function buy(i) {
   const c = shopCost(it);
   const say = (m, ok) => { shopMsg = m; shopMsgT = 2; if (!ok) sfx.hit(); };
   if (it.kind === 'up' && save.up[it.id] >= MAXUP) return say(`${it.name} is already maxed!`, false);
-  if (it.kind === 'inv' && save.inv[it.id] >= 9) return say('You can carry at most 9 of those!', false);
+  if (it.kind === 'inv' && save.inv[it.id] >= 5) return say('You can carry at most 5 of those!', false);
   if (save.wallet < c) return say(`Need ${c - save.wallet} more coins!`, false);
   save.wallet -= c;
   if (it.kind === 'up') save.up[it.id]++; else save.inv[it.id]++;
@@ -536,11 +617,15 @@ function buy(i) {
   say(it.kind === 'up' ? `${it.name} upgraded to level ${save.up[it.id]}!` : `Bought ${it.name}!`, true);
 }
 function selectLevel(v) {
-  const n = clamp(v, 0, save.unlocked);
-  if (n === selLevel) { if (v > save.unlocked) sfx.hit(); return; }
+  if (v > save.unlocked) {                              // levels unlock strictly one after the other
+    menuMsg = `LOCKED - clear level ${save.unlocked + 1} first`; menuMsgT = 2; sfx.hit(); return;
+  }
+  const n = clamp(v, 0, 4);
+  if (n === selLevel) return;
   selLevel = n; init(selLevel); sfx.move();
 }
 function togglePause() {
+  stopSpeech();
   if (state === 'play') state = 'paused';
   else if (state === 'paused') state = 'play';
 }
@@ -549,19 +634,27 @@ function togglePause() {
 function laneHas(l, types, z0, z1) {
   return items.some(it => it.lane === l && types.includes(it.type) && it.z < z1 && it.z + it.len > z0);
 }
+/* ---------- trains: roofs the kid can run on, walls that stop projectiles ---------- */
+const trainAt = (l, z) => items.find(t => t.type === 'train' && !t.taken && t.lane === l && z >= t.z - 0.3 && z <= t.z + t.len + 0.3);
+const trainUnder = (x, z) => items.find(t => t.type === 'train' && !t.taken && Math.abs(t.x - x) < 1.15 && z >= t.z - 0.3 && z <= t.z + t.len + 0.3);
+const surfaceY = (x, z) => trainUnder(x, z) ? 3.1 : 0;
+const kidKey = () => { const t = kid.y > 2.5 ? trainUnder(kid.x, gap) : null; return t ? t.z - 0.01 : gap; };   // draw him after the roof he stands on
+
 function fireThrow(kind) {
   const lane = Math.random() < 0.75 ? p.lane : kid.lane;     // he aims at YOU
   if (kind === 'barrage') {                                  // boss: bottles in every lane
-    shuffle([0, 1, 2]).forEach((l, i) => addObs('bottle', l, gap - 0.5 + i * 3, { len: 0.5, y: 1.1, vz: 11 }));
+    shuffle([0, 1, 2]).forEach((l, i) => { if (!trainAt(l, gap - 0.5 + i * 3)) addObs('bottle', l, gap - 0.5 + i * 3, { len: 0.5, y: 1.1, vz: 11 }); });
     popup('⚠ BARRAGE! JUMP OR ROLL!', '#ff8080'); sfx.taunt();
     return;
   }
   if (kind === 'board') {                                    // skateboard sliding at you
+    if (trainAt(lane, gap - 0.5)) return;
     addObs('board', lane, gap - 0.5, { len: 1.2, vz: 14 });
     popup('⚠ SKATEBOARD!', '#ffb36b'); sfx.taunt();
     return;
   }
   if (kind === 'bottle' || kind === 'paint') {
+    if (trainAt(lane, gap - 0.5)) return;
     addObs(kind, lane, gap - 0.5, { len: 0.5, y: 1.1, vz: 11 });
     popup('⚠ INCOMING!', '#ff8080'); sfx.taunt();
     return;
@@ -582,14 +675,24 @@ function planThrow() {
 function updateKid(dt) {
   if (kid.stun <= 0) kid.phase += (S * 0.55 + 2) * dt;
   kid.laneT -= dt;
+  const onRoof = kid.y > 2.5;
+  const freeLane = l => !laneHas(l, ['train'], gap - 1.2, gap + 10);
+  // A train wall is about to hit him: climb onto the roof or dodge sideways (decided once per train)
+  if (!kid.caught && kid.stun <= 0 && !onRoof) {
+    const wall = items.find(it => it.type === 'train' && !it.taken && it.lane === kid.lane && it.z > gap + 1.5 && it.z < gap + 11);
+    if (wall) {
+      if (!kid.plan || kid.plan.id !== wall.id) kid.plan = { id: wall.id, mode: Math.random() < 0.5 ? 'climb' : 'dodge' };
+      if (kid.plan.mode === 'dodge') {
+        const opts = [kid.lane - 1, kid.lane + 1].filter(l => l >= 0 && l <= 2 && freeLane(l));
+        if (opts.length) kid.lane = opts[Math.random() * opts.length | 0]; else kid.plan.mode = 'climb';
+      }
+      if (kid.plan.mode === 'climb' && kid.y <= 0.01 && wall.z < gap + 8.5) { kid.vy = 15.5; kid.y = 0.001; }
+    }
+  }
   if (kid.laneT <= 0 && !kid.caught && kid.stun <= 0) {
     kid.laneT = rnd(0.3, 0.6);
-    const blocked = l => laneHas(l, ['train'], gap - 1.5, gap + 9);
-    if (blocked(kid.lane)) {
-      const opts = [kid.lane - 1, kid.lane + 1].filter(l => l >= 0 && l <= 2 && !blocked(l));
-      if (opts.length) kid.lane = opts[Math.random() * opts.length | 0];
-    } else if (Math.random() < 0.22) {
-      const opts = [kid.lane - 1, kid.lane + 1].filter(l => l >= 0 && l <= 2 && !blocked(l));
+    if (Math.random() < (onRoof ? 0.3 : 0.2)) {
+      const opts = [kid.lane - 1, kid.lane + 1].filter(l => l >= 0 && l <= 2 && (onRoof || freeLane(l)));
       if (opts.length) kid.lane = opts[Math.random() * opts.length | 0];
     }
   }
@@ -598,7 +701,9 @@ function updateKid(dt) {
     if (kid.y <= 0.01 && laneHas(kid.lane, ['barrier'], gap - 0.5, gap + 3.5)) { kid.vy = 9.5; kid.y = 0.001; }
     if (laneHas(kid.lane, ['bar'], gap - 0.5, gap + 3.5)) kid.roll = 0.5;
   }
-  if (kid.y > 0 || kid.vy > 0) { kid.vy -= 34 * dt; kid.y += kid.vy * dt; if (kid.y <= 0) { kid.y = 0; kid.vy = 0; } }
+  const sy = surfaceY(kid.x, gap);                       // roof height under him (0 = ground)
+  if (kid.y > sy + 0.001 || kid.vy > 0) { kid.vy -= 34 * dt; kid.y += kid.vy * dt; }
+  if (kid.y < sy) { kid.y = sy; if (kid.vy < 0) kid.vy = 0; }
   if (kid.roll > 0) kid.roll -= dt;
   if (kid.throwT > 0) kid.throwT -= dt;
 
@@ -631,7 +736,8 @@ function updateKid(dt) {
       kid.say = t; kid.sayLeft = 1.9; sfx.taunt();
     }
   }
-  if (kid.sayLeft > 0) kid.sayLeft -= dt;
+  if (kid.sayLeft > 0 && kid.say && kid.say !== kid.spoken) { speak(kid.say); kid.spoken = kid.say; }   // voice-over
+  if (kid.sayLeft > 0) kid.sayLeft -= dt; else kid.spoken = '';
 }
 
 /* ---------- update ---------- */
@@ -673,7 +779,13 @@ function update(dt) {
 
   /* ----- playing ----- */
   hitT = Math.max(0, hitT - dt); grace -= dt; slowT -= dt; turbo -= dt; magnet -= dt;
-  paintT -= dt; popT -= dt; p.slip -= dt; kid.stun -= dt; bossIntro -= dt; lvIntro -= dt;
+  paintT -= dt; popT -= dt; p.slip -= dt; kid.stun -= dt; bossIntro -= dt; lvIntro -= dt; jet -= dt;
+  if (menuMsgT > 0) menuMsgT -= dt;
+  comboT -= dt; if (comboT <= 0) combo = 0;
+  if (jetOn && jet <= 0) {                               // never drop the jetpack while over a train roof
+    const roof = items.some(t => t.type === 'train' && !t.taken && Math.abs(t.x - p.x) < 1.15 && t.z < 4 && t.z + t.len > -1.5);
+    if (roof) jet = 0.25; else { jetOn = false; grace = Math.max(grace, 0.8); }
+  }
   shake = Math.max(0, shake - dt); flash = Math.max(0, flash - dt);
   if (theme.lightning) { lightCd -= dt; if (lightCd <= 0) { lightT = 0.45; lightCd = rnd(4, 9); sfx.thunder(); } }
   if (p.y <= 0.01 && !(p.roll > 0)) {                    // dust kicked up by running feet
@@ -685,15 +797,24 @@ function update(dt) {
   }
 
   const base = LV().speed;
-  const target = base * (turbo > 0 ? 1.5 : 1) * (slowT > 0 ? 0.4 : 1);
+  const target = base * (turbo > 0 ? 1.35 : 1) * (jetOn ? 1.2 : 1) * (slowT > 0 ? 0.4 : 1);
   S += (target - S) * Math.min(1, dt * 3);
   dist += S * dt;
   scrollWorld(dt, true);
+  if (jetOn) {                                           // coin shower in front of the jetpack
+    jetCur -= S * dt;
+    while (jetCur < 36) { addCoin(p.lane, jetCur, 4.4); items[items.length - 1].sky = true; jetCur += 4; }
+  }
+  for (const it of items) {                              // bottles / paint / boards shatter on trains
+    if (!it.vz || it.taken) continue;
+    if (trainAt(it.lane, it.z)) { it.taken = true; burst(it.x, it.y || 0.5, Math.max(it.z, 0.4), '#cfe3ff', 10, 4); }
+  }
 
   // player motion
   p.x += (laneX(p.lane) - p.x) * Math.min(1, dt * (p.slip > 0 ? 3.5 : 15));
   p.tilt = (laneX(p.lane) - p.x) * 0.08;
-  if (p.y > 0 || p.vy > 0) {
+  if (jetOn) { p.vy = 0; p.y += (4.3 - p.y) * Math.min(1, dt * 6); }
+  else if (p.y > 0 || p.vy > 0) {
     p.vy -= 34 * dt; p.y += p.vy * dt;
     if (p.y <= 0) { p.y = 0; p.vy = 0; if (p.rollLand) { p.roll = 0.55; p.rollT = 0; p.rollLand = false; } }
   }
@@ -704,7 +825,7 @@ function update(dt) {
   let kidAdv = LV().adv + (boss ? 0.4 : 0);
   if (kid.stun > 0) kidAdv = -1.5;
   else { if (gap < 5) kidAdv += 1.4; if (kid.dash > 0) kidAdv += 2.5; }                    // he panics and sprints when you get close
-  gap += (kidAdv - (turbo > 0 ? 6 : 0) + (slowT > 0 ? 4 : 0)) * dt;
+  gap += (kidAdv - (turbo > 0 ? 3.5 : 0) - (jetOn ? 1.5 : 0) + (slowT > 0 ? 4 : 0)) * dt;
 
   updateKid(dt);
 
@@ -719,42 +840,48 @@ function update(dt) {
   for (const it of items) {
     if (it.taken) continue;
     if (PICK.has(it.type)) {
-      if (magnet > 0 && it.z > -1 && it.z < 14 + 3 * save.up.magnet && Math.abs(it.x - p.x) < LW * (1.2 + 0.3 * save.up.magnet)) {
+      if (magnet > 0 && it.z > -1 && it.z < 14 + 2 * save.up.magnet && Math.abs(it.x - p.x) < LW * (1.2 + 0.2 * save.up.magnet)) {
         it.x += (p.x - it.x) * Math.min(1, dt * 9);
         it.z -= 12 * dt;
         it.y += (p.y + 0.9 - it.y) * Math.min(1, dt * 9);
       }
-      if (Math.abs(it.z) < 0.9 && Math.abs(it.x - p.x) < 0.85 && it.y >= p.y - 0.2 && it.y <= p.y + ph) {
+      if (Math.abs(it.z) < 0.9 && Math.abs(it.x - p.x) < 0.85 && (jetOn || (it.y >= p.y - 0.2 && it.y <= p.y + ph))) {
         it.taken = true;
+        if (it.type !== 'coin') missionAdd('power', 1);
         if (it.type === 'coin') {
           const v = dbl ? 2 : 1;
-          coins += v; save.wallet += v; bonus += 10 * v; gap = Math.max(0, gap - (0.5 + 0.1 * save.up.cardio)); sfx.coin();
+          combo++; comboT = 1.6; const mult = comboMult(); maxMult = Math.max(maxMult, mult);
+          coins += v; save.wallet += v; bonus += 10 * v * mult; if (!it.sky) gap = Math.max(0, gap - TUNE.cardio(save.up.cardio)); sfx.coin();
+          missionAdd('coins', v); missionMax('mult', mult);
           burst(it.x, it.y, 0.4, '#ffd23f', 4, 2.5);
+        } else if (it.type === 'jetpack') {
+          jetOn = true; jetMax = jet = 3.5; jetCur = 36; p.roll = 0; p.rollLand = false;
+          sfx.power(); burst(p.x, 1, 0.4, '#ffb36b', 18, 5); popup('🚀 JETPACK! Fly over everything', '#ffb36b');
         } else if (it.type === 'turbo') {
-          turboMax = turbo = 6 + 1.5 * save.up.turbo; sfx.power(); burst(p.x, 1, 0.4, '#4aa3ff', 16, 5);
+          turboMax = turbo = TUNE.turbo(save.up.turbo); sfx.power(); burst(p.x, 1, 0.4, '#4aa3ff', 16, 5);
         } else if (it.type === 'magnet') {
-          magnetMax = magnet = 9 + 2 * save.up.magnet; sfx.power(); burst(p.x, 1, 0.4, '#ff5a5a', 16, 5);
+          magnetMax = magnet = TUNE.magnet(save.up.magnet); sfx.power(); burst(p.x, 1, 0.4, '#ff5a5a', 16, 5);
         } else if (it.type === 'shield') {
-          p.shield = 1 + save.up.shield; sfx.power(); burst(p.x, 1, 0.4, '#7fd8ff', 16, 5); popup(`🛡️ SHIELD x${p.shield}!`, '#7fd8ff');
+          p.shield = TUNE.shield(save.up.shield); sfx.power(); burst(p.x, 1, 0.4, '#7fd8ff', 16, 5); popup(`🛡️ SHIELD x${p.shield}!`, '#7fd8ff');
         } else if (it.type === 'taser') {
-          const tg = 7 + 1.5 * save.up.taser;
+          const tg = TUNE.taser(save.up.taser);
           burst(kid.x, 1.2, gap, '#ffe94a', 24, 6);
-          gap = Math.max(0, gap - tg); kid.stun = 2.2 + 0.3 * save.up.taser; kid.say = 'AAAH! Not fair!'; kid.sayLeft = 2;
+          gap = Math.max(0, gap - tg); kid.stun = TUNE.taserStun(save.up.taser); kid.say = 'AAAH! Not fair!'; kid.sayLeft = 2;
           sfx.power(); popup(`⚡ TASED HIM! -${tg} m`, '#ffe94a');
         } else {
-          const dg = 3 + save.up.donut;
+          const dg = TUNE.donut(save.up.donut);
           gap = Math.max(0, gap - dg); bonus += 50; sfx.power(); burst(p.x, 1, 0.4, '#ff9ccf', 14, 4);
           popup(`🍩 YUM! -${dg} m`, '#ffb3de');
         }
       }
       continue;
     }
-    if (it.hit) continue;
+    if (jetOn || it.hit) continue;                       // flying over everything
     if (!(it.z < 0.45 && it.z + it.len > -0.45)) continue;
     if (Math.abs(it.x - p.x) >= 0.9) continue;
     let bad = false;
     if (it.type === 'barrier') bad = p.y < it.h - 0.15;
-    else if (it.type === 'bar') bad = !(p.roll > 0 && p.y < 0.2);
+    else if (it.type === 'bar') bad = p.y < 2.0 && !(p.roll > 0 && p.y < 0.2);
     else if (it.type === 'train') bad = p.y < 3.0;
     else if (it.type === 'pit') bad = p.y < 0.3;
     else if (it.type === 'cone') bad = p.y < 0.6;
@@ -1120,10 +1247,10 @@ function C(x, y, r, col) {
 
 function person(x, y, z, o) {
   const [sx, sy, s] = P(x, y, z);
-  const gy = P(x, 0, z)[1];
+  const gy = P(x, o.gnd || 0, z)[1];                     // shadow sits on whatever he is standing on
   ctx.globalAlpha = fog(z);
   ctx.save(); ctx.translate(sx + 0.15 * s * o.sc, gy); ctx.scale(1, 0.3);
-  const shg = ctx.createRadialGradient(0, 0, 0, 0, 0, 0.75 * s * o.sc * (1 - Math.min(0.4, y * 0.15)));
+  const shg = ctx.createRadialGradient(0, 0, 0, 0, 0, 0.75 * s * o.sc * (1 - Math.min(0.4, (y - (o.gnd || 0)) * 0.15)));
   shg.addColorStop(0, 'rgba(0,0,0,.6)'); shg.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = shg; ctx.beginPath(); ctx.arc(0, 0, 0.75 * s * o.sc, 0, 6.2832); ctx.fill(); ctx.restore();
   if (o.blink && Math.floor(time * 14) % 2 === 0) ctx.globalAlpha *= 0.35;
@@ -1148,7 +1275,7 @@ function person(x, y, z, o) {
     C(0, -0.22, 0.2, o.pants);
     C(0, 0.3, 0.2, o.hair);
   } else {
-    const air = y > 0.05;
+    const air = y - (o.gnd || 0) > 0.05;
     // legs
     for (const sd of [-1, 1]) {
       const lift = air ? (sd > 0 ? 0.3 : 0.05) : Math.max(0, Math.sin(o.phase + (sd > 0 ? Math.PI : 0))) * 0.3;
@@ -1178,6 +1305,14 @@ function person(x, y, z, o) {
     } else {
       R(-0.3, 0.92, 0.6, 0.58, o.pack);
       R(-0.3, 1.2, 0.6, 0.06, '#00000055');
+    }
+    if (o.jet) {                                         // jetpack + flames
+      R(-0.34, 0.95, 0.28, 0.52, '#8a8f99'); R(0.06, 0.95, 0.28, 0.52, '#8a8f99');
+      for (const fx of [-0.2, 0.2]) {
+        const fl = 0.35 + Math.random() * 0.3;
+        ctx.fillStyle = '#ffb03a'; ctx.beginPath(); ctx.moveTo(fx - 0.1, 0.95); ctx.lineTo(fx + 0.1, 0.95); ctx.lineTo(fx, 0.95 - fl); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#fff2a0'; ctx.beginPath(); ctx.moveTo(fx - 0.05, 0.95); ctx.lineTo(fx + 0.05, 0.95); ctx.lineTo(fx, 0.95 - fl * 0.6); ctx.closePath(); ctx.fill();
+      }
     }
     if (o.cape) {
       const wv = Math.sin(time * 9) * 0.09;
@@ -1221,7 +1356,7 @@ function drawCop() {
   person(p.x, p.y, 0, {
     sc: 1, kind: 'cop', phase: p.phase, roll: p.roll, rollT: p.rollT, tilt: p.tilt,
     shirt: '#274690', pants: '#14213d', cap: '#14213d', hair: '#3a2a1a', skin: '#e8b48a', shoe: '#0a0a0a',
-    aura: turbo > 0, turbo: turbo > 0, blink: grace > 0
+    aura: turbo > 0, turbo: turbo > 0, blink: grace > 0, jet: jetOn
   });
   if (p.shield) {
     const [bx, by, bs] = P(p.x, p.y + 0.9, 0);
@@ -1236,7 +1371,7 @@ function drawKid() {
   const r = person(kid.x, kid.y, gap, {
     sc: ksc, kind: 'kid', phase: kid.phase, roll: kid.roll, rollT: time, tilt: 0, throwT: kid.throwT,
     shirt: k.hood, pants: k.pants, cap: k.cap, hair: k.hair, skin: k.skin, shoe: '#f2f2f2', pack: k.pack,
-    aura: kid.stun > 0, zap: true, cape: !!LV().cape
+    aura: kid.stun > 0, zap: true, cape: !!LV().cape, gnd: surfaceY(kid.x, gap)
   });
   ks = { x: r[0], y: r[1], s: r[2] * ksc };
 }
@@ -1259,7 +1394,7 @@ function render() {
     ctx.globalAlpha = 1;
   } });
   for (const it of items) if (!it.taken) list.push({ z: it.z, f: () => drawItem(it) });
-  list.push({ z: gap, f: drawKid });
+  list.push({ z: kidKey(), f: drawKid });
   list.push({ z: 0, f: drawCop });
   list.sort((a, b) => b.z - a.z);
   for (const e of list) e.f();
@@ -1271,7 +1406,7 @@ function render() {
     ctx.globalAlpha = clamp(q.life / q.max, 0, 1) * fog(q.z);
     ctx.fillStyle = q.col;
     const sz = q.size * ps;
-    ctx.fillRect(px - sz / 2, py - sz / 2, sz, sz);
+    ctx.beginPath(); ctx.arc(px, py, Math.max(1, sz / 2), 0, 6.2832); ctx.fill();
   }
   ctx.globalAlpha = 1;
 
@@ -1458,6 +1593,15 @@ function drawHUD() {
     }
   }
 
+  mis.forEach((m, i) => {                                // missions
+    T(`${m.done ? '✓' : '•'} ${m.def.txt(m.n)}  ${m.done ? 'DONE' : m.prog + '/' + m.n}`, 14, 122 + i * 14, 10, m.done ? '#7dffa0' : '#e8eefc', 'left');
+  });
+  if (combo > 1) {                                       // combo multiplier
+    const mu = comboMult();
+    T(`COMBO ${combo}  x${mu}`, W - 14, 80, 12, mu > 1 ? '#ffd23f' : '#cfe3ff', 'right');
+    ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.fillRect(W - 94, 86, 80, 4);
+    ctx.fillStyle = '#ffd23f'; ctx.fillRect(W - 94, 86, 80 * clamp(comboT / 1.6, 0, 1), 4);
+  }
   if (lvIntro > 0 && state === 'play') {
     ctx.globalAlpha = Math.min(1, lvIntro);
     T('LEVEL ' + (level + 1), W / 2, 226, 36, '#ffd23f', 'center');
@@ -1471,6 +1615,7 @@ function drawHUD() {
   }
   // power-up bars
   let yb = H - 24;
+  if (jetOn) { powerBar('🚀 JETPACK', Math.max(0, jet) / jetMax, '#ffb36b', yb); yb -= 30; }
   if (turbo > 0) { powerBar('🚨 TURBO', turbo / turboMax, '#4aa3ff', yb); yb -= 30; }
   if (magnet > 0) { powerBar('🧲 MAGNET', magnet / magnetMax, '#ff5a5a', yb); yb -= 30; }
   if (p.shield > 0) powerBar('🛡️ SHIELD x' + p.shield, 1, '#7fd8ff', yb);
@@ -1495,6 +1640,7 @@ function coinIcon(x, y, r) {
   ctx.fillStyle = g; ctx.strokeStyle = '#b8860b'; ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill(); ctx.stroke();
 }
+const menuTile = i => ({ x: 134 + i * 44, y: 428, w: 36, h: 24 });
 const MENU_L = { x: 24, y: 330, w: 110, h: 92 }, MENU_R = { x: 346, y: 330, w: 110, h: 92 }, MENU_SHOP = { x: 130, y: 606, w: 220, h: 50 };
 
 function drawMenu() {
@@ -1512,24 +1658,27 @@ function drawMenu() {
   T(L.name.toUpperCase(), W / 2, 384, 22, '#fff', 'center');
   T('★'.repeat(selLevel + 1) + '☆'.repeat(4 - selLevel), W / 2, 404, 14, '#ffd23f', 'center');
   T(L.boss ? `BOSS FIGHT: ${L.kid.n}` : `Chase: ${L.kid.n}`, W / 2, 416, 11, L.boss ? '#ff6b7a' : '#cfe3ff', 'center');
-  T(selLevel < 4 && selLevel === save.unlocked ? 'Catch the kid to unlock the next level' : ' ', W / 2, 442, 11, '#9fe8ff', 'center');
-  for (let i = 0; i < 5; i++) {
-    ctx.fillStyle = i === selLevel ? '#ffd23f' : i <= save.unlocked ? 'rgba(255,255,255,.6)' : 'rgba(255,255,255,.2)';
-    ctx.beginPath(); ctx.arc(W / 2 - 40 + i * 20, 430, i === selLevel ? 4 : 3, 0, 6.2832); ctx.fill();
+  for (let i = 0; i < 5; i++) {                          // level strip: locked until the previous level is cleared
+    const t = menuTile(i), locked = i > save.unlocked, sel = i === selLevel;
+    glass(t.x, t.y, t.w, t.h, 8, locked ? 0.6 : 1.3, sel ? 'rgba(255,210,80,.95)' : locked ? 'rgba(255,255,255,.1)' : 'rgba(125,255,160,.6)');
+    if (locked) E('🔒', t.x + t.w / 2, t.y + t.h / 2 + 1, 12);
+    else T(String(i + 1), t.x + t.w / 2, t.y + 16, 13, i < save.unlocked ? '#7dffa0' : '#fff', 'center');
   }
+  if (menuMsgT > 0) T(menuMsg, W / 2, 462, 11, '#ff8a8a', 'center');
+  else T(selLevel < 4 && selLevel === save.unlocked ? 'Catch the kid to unlock the next level' : ' ', W / 2, 462, 11, '#9fe8ff', 'center');
 
   // controls
-  glass(40, 456, 400, 134, 16);
+  glass(40, 470, 400, 124, 16);
   const rows = [
     ['← →  /  A D', 'Switch lanes'],
     ['↑  /  W  /  Space', 'Jump over barriers & pits'],
     ['↓  /  S', 'Roll under bars (fast-fall)'],
     ['Swipe', 'Same moves on touch screens'],
-    ['P / Esc', 'Pause        M: mute']
+    ['P / Esc', `Pause   M: mute   V: voice ${voiceOn ? 'ON' : 'OFF'}`]
   ];
   rows.forEach((r, i) => {
-    T(r[0], 58, 484 + i * 24, 13, '#ffd23f', 'left');
-    T(r[1], 225, 484 + i * 24, 12, '#fff', 'left');
+    T(r[0], 58, 494 + i * 22, 13, '#ffd23f', 'left');
+    T(r[1], 225, 494 + i * 22, 12, '#fff', 'left');
   });
 
   // shop button
@@ -1627,7 +1776,7 @@ function drawBust() {
   E('⛓️', W / 2, 150, 54);
   T(`${k.n} is under arrest!`, W / 2, 300, 22, '#fff', 'center');
   T(boss ? 'BOSS DEFEATED!' : `LEVEL ${level + 1} CLEARED!`, W / 2, 340, 28, '#7dffa0', 'center');
-  T(`+${1000 * (level + 1) + (boss ? 2000 : 0)} pts   ·   +${40 + 30 * level} coins`, W / 2, 372, 16, '#ffe27a', 'center');
+  T(`+${1000 * (level + 1) + (boss ? 2000 : 0)} pts   ·   +${30 + 20 * level} coins`, W / 2, 372, 16, '#ffe27a', 'center');
   T(level < LEVELS.length - 1 ? `Next up: ${LEVELS[level + 1].name}` : 'That was the last kid!', W / 2, 400, 14, '#cfe3ff', 'center');
 }
 function drawOver() {
@@ -1656,7 +1805,14 @@ addEventListener('keydown', e => {
   const k = e.key;
   if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' '].includes(k)) e.preventDefault();
   if (e.repeat) return;
-  if (k === 'm' || k === 'M') { muted = !muted; return; }
+  if (k === 'm' || k === 'M') { muted = !muted; if (muted) stopSpeech(); return; }
+  if ((k === 'v' || k === 'V') && state !== 'shop') {
+    voiceOn = !voiceOn; if (!voiceOn) stopSpeech();
+    try { localStorage.setItem('subwayPursuitVoice', voiceOn ? '1' : '0'); } catch (e) {}
+    if (voiceOn) speak('Voice on. Try to catch me!');
+    popup(voiceOn ? '🎙 Voice ON' : '🎙 Voice OFF', '#cfe3ff');
+    return;
+  }
   if ((state === 'play' || state === 'paused') && (k === 'p' || k === 'P' || k === 'Escape')) { togglePause(); return; }
   if (state === 'menu') {
     if (k === 'ArrowLeft' || k === 'a' || k === 'A') selectLevel(selLevel - 1);
@@ -1699,7 +1855,10 @@ cv.addEventListener('pointerdown', e => {
     if (inRect(x, y, MENU_L)) selectLevel(selLevel - 1);
     else if (inRect(x, y, MENU_R)) selectLevel(selLevel + 1);
     else if (inRect(x, y, MENU_SHOP)) openShop('menu');
-    else start();
+    else {
+      for (let i = 0; i < 5; i++) if (inRect(x, y, menuTile(i))) { selectLevel(i); return; }
+      start();
+    }
     return;
   }
   if (state === 'shop') { shopClick(x, y); return; }
@@ -1742,6 +1901,8 @@ requestAnimationFrame(frame);
 
 // tiny hook for automated testing
 window.__game = { get state() { return state; }, get gap() { return gap; }, get score() { return scoreNow(); }, get level() { return level; }, get boss() { return boss; }, get hp() { return bossHP; }, get theme() { return LEVELS[level].name; }, save,
+  get kidInTrain() { return !!trainUnder(kid.x, gap) && kid.y < 2.9; }, get kidOnRoof() { return kid.y > 2.9 && !!trainUnder(kid.x, gap); }, get kidY() { return kid.y; },
+  giveJetpack() { items.push({ type: 'jetpack', lane: p.lane, x: laneX(p.lane), z: 0.2, y: 1, len: 0 }); }, get jetOn() { return jetOn; }, get missions() { return mis.map(m => m.def.txt(m.n)); }, get speechOK() { return SPEECH; },
   start, move, jump, roll: rollAct, setGap: v => { gap = v; }, newGame, toMenu, buy, shopDone, openShop, selectLevel, levelComplete, setWallet: v => { save.wallet = v; }, get shield() { return p.shield; }, get turbo() { return turbo; } };
 })();
 </script>
