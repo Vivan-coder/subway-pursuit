@@ -22,3 +22,13 @@ Open `index.html` in any modern browser. No build step, no dependencies.
 - Coins close the gap. Crash twice within a few seconds and he escapes.
 - Close the gap to 2 m to bust him and move on to a faster kid.
 - Every third chase is a boss fight against Big Brat.
+
+## Obstacles
+
+- Trains block a lane
+- Low barriers (jump)
+- Overhead bars (roll)
+- Open pits (jump)
+- Cones (small stumble)
+- Oil slicks (sluggish steering)
+- Gauntlet rows that chain a jump and a roll
