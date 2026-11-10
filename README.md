@@ -80,13 +80,23 @@ MIT, see [LICENSE](LICENSE).
 | 4 | Storm Yard | Storm and lightning | Double throws, gauntlet rows |
 | 5 | Midnight Showdown | Blood-red night | Final boss: Big Brat (4 tackles) |
 
-Catch the kid to clear a level and unlock the next one. Progress is saved in `localStorage`.
+Levels unlock strictly one after the other: you must catch the kid to unlock the next level. Progress is saved in `localStorage`.
 
 ## Shop
 
 Coins you collect go into a persistent wallet. Spend them in the shop between levels,
 from the main menu (S) or from the game over screen.
 
-Upgrades (5 tiers each): Turbo, Magnet, Shield, Taser, Donut, Cardio, Lucky Badge.
+Upgrades (5 tiers each, 100 / 220 / 400 / 650 / 1000 coins): Turbo, Magnet, Shield, Taser, Donut, Cardio, Lucky Badge.
 
-Boosts (single use): Head Start, Ready Shield, Coin Doubler.
+Boosts (single use, max 5 each): Head Start (150), Ready Shield (100), Coin Doubler (200).
+
+Power-ups are intentionally modest, so maxing everything takes many runs.
+
+## More features
+
+- Voiced kid: he actually speaks his taunts using the browser's speech synthesis (V toggles voice, M mutes everything)
+- Jetpack pickup: fly over everything for a few seconds
+- Coin combo multiplier (up to x5)
+- Two missions per level that pay bonus coins
+- The kid climbs onto train roofs or dodges around them
