@@ -4,6 +4,7 @@
 - [x] Coin shop with upgrades
 - [ ] More bosses with their own attack patterns
 - [ ] Character selection
+- [x] Missions
 - [ ] Daily missions
 - [ ] Leaderboard
 - [ ] Gamepad support
