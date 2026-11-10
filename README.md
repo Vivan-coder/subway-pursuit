@@ -64,3 +64,7 @@ python -m http.server 8000
 - Pseudo-3D perspective projection with depth sorting
 - Procedural audio with the Web Audio API
 - Best score is saved in `localStorage`
+
+## License
+
+MIT, see [LICENSE](LICENSE).
