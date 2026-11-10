@@ -57,3 +57,10 @@ or
 ```
 python -m http.server 8000
 ```
+
+## Tech notes
+
+- Plain HTML + Canvas 2D, no libraries
+- Pseudo-3D perspective projection with depth sorting
+- Procedural audio with the Web Audio API
+- Best score is saved in `localStorage`
