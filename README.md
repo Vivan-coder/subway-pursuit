@@ -81,3 +81,12 @@ MIT, see [LICENSE](LICENSE).
 | 5 | Midnight Showdown | Blood-red night | Final boss: Big Brat (4 tackles) |
 
 Catch the kid to clear a level and unlock the next one. Progress is saved in `localStorage`.
+
+## Shop
+
+Coins you collect go into a persistent wallet. Spend them in the shop between levels,
+from the main menu (S) or from the game over screen.
+
+Upgrades (5 tiers each): Turbo, Magnet, Shield, Taser, Donut, Cardio, Lucky Badge.
+
+Boosts (single use): Head Start, Ready Shield, Coin Doubler.
