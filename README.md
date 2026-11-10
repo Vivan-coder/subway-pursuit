@@ -40,3 +40,8 @@ Open `index.html` in any modern browser. No build step, no dependencies.
 - Shield: absorbs one hit
 - Taser: stuns the kid and closes the gap
 - Donut: closes the gap and adds bonus points
+
+## The kid
+
+He is not nice. He throws trash cans, bottles, paint balloons and skateboards at you,
+drops oil and cones, dashes ahead to show off, and taunts you the whole way.
