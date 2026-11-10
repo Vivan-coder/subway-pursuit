@@ -203,15 +203,15 @@ const THEMES = [
 ];
 const ALL_KINDS = ['can', 'bottle', 'paint', 'oil', 'cones', 'board', 'bottle', 'paint'];
 const LEVELS = [
-  { name: 'Sunset Station', theme: THEMES[0], sc: 0.85, speed: 20, adv: 1.0, gap: 14, throw: 1.4, sp: 14, gaunt: 0, train2: 0.45, dbl: false, boss: 0, kinds: ['can', 'cones', 'oil', 'bottle'],
+  { name: 'Sunset Station', theme: THEMES[0], sc: 0.85, speed: 17, adv: 0.45, gap: 12, throw: 2.2, sp: 16, gaunt: 0, train2: 0.3, dbl: false, boss: 0, kinds: ['can', 'cones', 'oil', 'bottle'],
     kid: { n: 'Jake', hood: '#e63946', pants: '#2b2d42', cap: '#1d3557', pack: '#ffd23f', hair: '#2b1b12', skin: '#d9a066' } },
-  { name: 'Neon Night', theme: THEMES[1], sc: 0.85, speed: 23, adv: 1.3, gap: 16, throw: 1.1, sp: 12.5, gaunt: 0.05, train2: 0.5, dbl: false, boss: 0, kinds: ['can', 'bottle', 'paint', 'oil', 'cones'],
+  { name: 'Neon Night', theme: THEMES[1], sc: 0.85, speed: 19.5, adv: 0.75, gap: 14, throw: 1.7, sp: 14, gaunt: 0.03, train2: 0.38, dbl: false, boss: 0, kinds: ['can', 'bottle', 'paint', 'oil', 'cones'],
     kid: { n: 'Mia', hood: '#8338ec', pants: '#3a0ca3', cap: '#ff006e', pack: '#06d6a0', hair: '#1a1a1a', skin: '#e0ac69' } },
-  { name: 'Rainy Docks', theme: THEMES[2], sc: 1.1, speed: 26, adv: 1.6, gap: 17, throw: 0.9, sp: 11.5, gaunt: 0.08, train2: 0.55, dbl: false, boss: 2, kinds: ALL_KINDS,
+  { name: 'Rainy Docks', theme: THEMES[2], sc: 1.1, speed: 22, adv: 1.05, gap: 15, throw: 1.4, sp: 13, gaunt: 0.05, train2: 0.45, dbl: false, boss: 2, kinds: ALL_KINDS,
     kid: { n: 'SKATE KING', hood: '#06d6a0', pants: '#264653', cap: '#ffd166', pack: '#e63946', hair: '#5a3825', skin: '#c68642' } },
-  { name: 'Storm Yard', theme: THEMES[3], sc: 0.9, speed: 29, adv: 1.9, gap: 18, throw: 0.75, sp: 10.5, gaunt: 0.12, train2: 0.6, dbl: true, boss: 0, kinds: ALL_KINDS,
+  { name: 'Storm Yard', theme: THEMES[3], sc: 0.9, speed: 24.5, adv: 1.35, gap: 16, throw: 1.15, sp: 12, gaunt: 0.08, train2: 0.5, dbl: true, boss: 0, kinds: ALL_KINDS,
     kid: { n: 'Zoe', hood: '#ff9f1c', pants: '#2a9d8f', cap: '#e71d36', pack: '#3a86ff', hair: '#7a4a21', skin: '#f1c27d' } },
-  { name: 'Midnight Showdown', theme: THEMES[4], sc: 1.3, speed: 32, adv: 2.2, gap: 18, throw: 0.6, sp: 9.5, gaunt: 0.14, train2: 0.65, dbl: true, boss: 4, cape: true, kinds: ALL_KINDS,
+  { name: 'Midnight Showdown', theme: THEMES[4], sc: 1.3, speed: 27, adv: 1.6, gap: 16, throw: 0.95, sp: 11, gaunt: 0.1, train2: 0.55, dbl: true, boss: 3, cape: true, kinds: ALL_KINDS,
     kid: { n: 'BIG BRAT', hood: '#d4a017', pants: '#15151c', cap: '#15151c', pack: '#7a0c0c', hair: '#111111', skin: '#d9a066' } }
 ];
 const LV = () => LEVELS[level];
@@ -260,7 +260,7 @@ const TUNE = {
   taser: l => 5 + l,                   // metres of gap removed
   taserStun: l => r1(1.6 + 0.2 * l),
   donut: l => r1(2 + 0.5 * l),         // metres of gap removed
-  cardio: l => r1(0.4 + 0.05 * l),     // metres removed per coin
+  cardio: l => r1(0.6 + 0.05 * l),     // metres removed per coin
   lucky: l => 7 + l                    // % chance of a pickup per row
 };
 const SHOP = [
@@ -486,7 +486,7 @@ function hit(it) {
   }
   if (hitT > 0) { gameOver('crash'); return; }
   combo = 0; comboT = 0;
-  hitT = 5; grace = 1.0; slowT = 0.9; gap += 4; shake = 0.45; flash = 0.35;
+  hitT = 4; grace = 1.0; slowT = 0.9; gap += 3; shake = 0.45; flash = 0.35;
   sfx.hit();
   burst(p.x, p.y + 0.9, 0.5, '#ffffff', 14, 4);
   kid.say = HIT_TAUNTS[Math.random() * HIT_TAUNTS.length | 0]; kid.sayLeft = 1.8;
@@ -692,7 +692,7 @@ function updateKid(dt) {
   // taunt dash: he sprints off to rub it in
   kid.dash -= dt; kid.dashCd -= dt;
   if (kid.dashCd <= 0 && !kid.caught && kid.stun <= 0) {
-    kid.dashCd = rnd(8, 12); kid.dash = 1.2; kid.say = 'Zoom zoom, slowpoke!'; kid.sayLeft = 1.5; sfx.taunt();
+    kid.dashCd = rnd(12, 18); kid.dash = 1.2; kid.say = 'Zoom zoom, slowpoke!'; kid.sayLeft = 1.5; sfx.taunt();
   }
   kid.talkCd -= dt;
   if (kid.talkCd <= 0) {
@@ -789,9 +789,9 @@ function update(dt) {
   p.phase += S * 0.55 * dt;
 
   // gap with the kid
-  let kidAdv = LV().adv + (boss ? 0.4 : 0);
+  let kidAdv = LV().adv + (boss ? 0.25 : 0);
   if (kid.stun > 0) kidAdv = -1.5;
-  else { if (gap < 5) kidAdv += 1.4; if (kid.dash > 0) kidAdv += 2.5; }                    // he panics and sprints when you get close
+  else { if (gap < 5) kidAdv += 0.8; if (kid.dash > 0) kidAdv += 1.5; }                    // he panics and sprints when you get close
   gap += (kidAdv - (turbo > 0 ? 3.5 : 0) - (jetOn ? 1.5 : 0) + (slowT > 0 ? 4 : 0)) * dt;
 
   updateKid(dt);
@@ -1072,7 +1072,7 @@ function drawBar(it) {
 function drawCoin(it) {
   if (it.z < -CB + 0.8) return;
   const [sx, sy, s] = P(it.x, it.y, it.z);
-  const r = 0.38 * s, w = Math.max(0.14, Math.abs(Math.cos(time * 5 + it.ph))) * r;
+  const r = 0.44 * s, w = Math.max(0.14, Math.abs(Math.cos(time * 5 + it.ph))) * r;
   const cg = ctx.createLinearGradient(sx - w, sy - r, sx + w, sy + r);
   cg.addColorStop(0, '#fff3a8'); cg.addColorStop(0.5, '#ffc61a'); cg.addColorStop(1, '#c88a00');
   ctx.fillStyle = cg; ctx.beginPath(); ctx.ellipse(sx, sy, w, r, 0, 0, 6.2832); ctx.fill();
@@ -1082,14 +1082,29 @@ function drawCoin(it) {
 }
 function drawPower(it) {
   if (it.z < -CB + 0.8) return;
-  const [sx, sy, s] = P(it.x, 1.0 + Math.sin(time * 4) * 0.12, it.z);
+  const bob = Math.sin(time * 4) * 0.15;
+  const [sx, sy, s] = P(it.x, 1.1 + bob, it.z);
+  const base = P(it.x, 0, it.z)[1], top = P(it.x, 7, it.z)[1];
   const col = GLOW[it.type] || '255,255,255';
-  const g = ctx.createRadialGradient(sx, sy, 2, sx, sy, 0.8 * s);
-  g.addColorStop(0, `rgba(${col},.75)`); g.addColorStop(1, `rgba(${col},0)`);
-  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(sx, sy, 0.8 * s, 0, 6.2832); ctx.fill();
-  ctx.font = `${Math.round(s * 0.8)}px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif`;
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
-  ctx.fillText(EMO[it.type] || '?', sx, sy + s * 0.04);
+  const pulse = 0.85 + 0.15 * Math.sin(time * 6);
+  ctx.globalCompositeOperation = 'lighter';
+  const bw = Math.max(3, 0.3 * s);                         // light beam: visible from far away
+  const bg = ctx.createLinearGradient(0, top, 0, base);
+  bg.addColorStop(0, `rgba(${col},0)`); bg.addColorStop(1, `rgba(${col},.6)`);
+  ctx.fillStyle = bg; ctx.fillRect(sx - bw / 2, top, bw, base - top);
+  const gr = 1.6 * s * pulse;                              // big glow
+  const g = ctx.createRadialGradient(sx, sy, 2, sx, sy, gr);
+  g.addColorStop(0, `rgba(${col},.9)`); g.addColorStop(1, `rgba(${col},0)`);
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(sx, sy, gr, 0, 6.2832); ctx.fill();
+  ctx.strokeStyle = `rgba(${col},.85)`; ctx.lineWidth = Math.max(1.5, s * 0.05);   // ground ring
+  ctx.beginPath(); ctx.ellipse(sx, base, 0.75 * s * pulse, 0.22 * s * pulse, 0, 0, 6.2832); ctx.stroke();
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = 'rgba(255,255,255,.94)';                 // white disc so the icon always contrasts
+  ctx.beginPath(); ctx.arc(sx, sy, 0.62 * s, 0, 6.2832); ctx.fill();
+  ctx.strokeStyle = `rgb(${col})`; ctx.lineWidth = Math.max(2, s * 0.07); ctx.stroke();
+  ctx.font = `${Math.round(s * 0.95)}px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#000';
+  ctx.fillText(EMO[it.type] || '?', sx, sy + s * 0.05);
 }
 function drawPit(it) {
   const x = it.x, z = it.z, l = it.len, hw = 1.05;
@@ -1115,24 +1130,54 @@ function drawOil(it) {
   poly([P(x - 0.7, 0.02, z0 + 0.2), P(x + 0.7, 0.02, z0 + 0.2), P(x + 0.7, 0.02, z + l - 0.2), P(x - 0.7, 0.02, z + l - 0.2)], 'rgba(120,80,220,.4)');
   poly([P(x - 0.35, 0.025, z0 + 0.5), P(x + 0.35, 0.025, z0 + 0.5), P(x + 0.35, 0.025, z + l - 0.5), P(x - 0.35, 0.025, z + l - 0.5)], 'rgba(60,220,200,.35)');
 }
+function drawWarn(it) {                                    // pulsing red ring on the ground under anything thrown at you
+  if (it.z < -CB + 0.8) return;
+  const [sx, base, s] = P(it.x, 0, it.z + it.len / 2);
+  const pulse = 0.8 + 0.2 * Math.sin(time * 14);
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.strokeStyle = `rgba(255,70,50,${0.9 * pulse})`; ctx.lineWidth = Math.max(2, s * 0.07);
+  ctx.beginPath(); ctx.ellipse(sx, base, 0.85 * s, 0.24 * s, 0, 0, 6.2832); ctx.stroke();
+  ctx.globalCompositeOperation = 'source-over';
+}
 function drawProj(it) {
   if (it.z < -CB + 0.8) return;
   const [sx, sy, s] = P(it.x, it.y, it.z);
-  const g = ctx.createRadialGradient(sx, sy, 2, sx, sy, 0.8 * s);
-  g.addColorStop(0, 'rgba(255,60,60,.55)'); g.addColorStop(1, 'rgba(255,60,60,0)');
-  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(sx, sy, 0.8 * s, 0, 6.2832); ctx.fill();
-  ctx.save(); ctx.translate(sx, sy); ctx.rotate(time * 12);
+  const pulse = 0.8 + 0.2 * Math.sin(time * 14);
+  ctx.globalCompositeOperation = 'lighter';
+  const gr = 1.7 * s * pulse;
+  const g = ctx.createRadialGradient(sx, sy, 2, sx, sy, gr);
+  g.addColorStop(0, 'rgba(255,70,40,.9)'); g.addColorStop(1, 'rgba(255,60,40,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(sx, sy, gr, 0, 6.2832); ctx.fill();
+  const tr = ctx.createLinearGradient(0, sy - 1.6 * s, 0, sy);   // motion trail back toward the kid
+  tr.addColorStop(0, 'rgba(255,80,40,0)'); tr.addColorStop(1, 'rgba(255,80,40,.6)');
+  ctx.fillStyle = tr; ctx.fillRect(sx - 0.22 * s, sy - 1.6 * s, 0.44 * s, 1.6 * s);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = 'rgba(40,0,0,.8)'; ctx.strokeStyle = `rgba(255,80,60,${pulse})`; ctx.lineWidth = Math.max(2, s * 0.08);
+  ctx.beginPath(); ctx.arc(sx, sy, 0.62 * s, 0, 6.2832); ctx.fill(); ctx.stroke();
+  ctx.save(); ctx.translate(sx, sy); ctx.rotate(time * 10);
   if (it.type === 'bottle') {
-    ctx.font = `${Math.round(s * 0.75)}px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif`;
+    ctx.font = `${Math.round(s * 0.95)}px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
     ctx.fillText('🍾', 0, 0);
   } else {
     ctx.fillStyle = ['#ff3d9a', '#35e0ff', '#9cff3d'][Math.floor(time * 8) % 3];
-    ctx.strokeStyle = '#111'; ctx.lineWidth = Math.max(1, s * 0.04);
-    ctx.beginPath(); ctx.arc(0, 0, 0.3 * s, 0, 6.2832); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.beginPath(); ctx.arc(-0.1 * s, -0.1 * s, 0.07 * s, 0, 6.2832); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(1.5, s * 0.06);
+    ctx.beginPath(); ctx.arc(0, 0, 0.4 * s, 0, 6.2832); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.beginPath(); ctx.arc(-0.13 * s, -0.13 * s, 0.09 * s, 0, 6.2832); ctx.fill();
   }
   ctx.restore();
+}
+function drawLaneWarnings() {                              // screen-space arrows on the lane something is flying down
+  for (const it of items) {
+    if (!it.vz || it.taken || it.z < 2 || it.z > 48) continue;
+    const x = P(it.x, 0, 6)[0];
+    const a = clamp(1.1 - it.z / 48, 0.35, 1) * (0.7 + 0.3 * Math.sin(time * 14));
+    const y = 640;
+    ctx.globalAlpha = a; ctx.fillStyle = '#ff3b3b'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.lineJoin = 'round';
+    ctx.beginPath(); ctx.moveTo(x, y - 22); ctx.lineTo(x + 20, y + 14); ctx.lineTo(x - 20, y + 14); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.font = '900 18px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('!', x, y + 3);
+    ctx.globalAlpha = 1;
+  }
 }
 function drawBoard(it) {
   if (it.z < -CB + 0.6) return;
@@ -1173,7 +1218,9 @@ function drawPaint() {
 }
 function drawItem(it) {
   if (it.z + it.len < -CB + 0.6) return;
-  ctx.globalAlpha = fog(it.z) * (it.hit && it.type === 'train' ? 0.4 : 1);
+  const fl = (PICK.has(it.type) && it.type !== 'coin') || it.vz ? 0.95 : it.type === 'coin' ? 0.6 : 0;   // keep important things readable
+  ctx.globalAlpha = Math.max(fog(it.z), fl) * (it.hit && it.type === 'train' ? 0.4 : 1);
+  if (it.vz) drawWarn(it);
   if (it.type === 'barrier' || it.type === 'bar') {
     const z0 = Math.max(it.z, -CB + 0.4);
     poly([P(it.x - 1.5, 0.012, z0), P(it.x + 0.2, 0.012, z0), P(it.x + 0.2, 0.012, it.z + it.len + 0.4), P(it.x - 1.5, 0.012, it.z + it.len + 0.4)], 'rgba(0,0,0,.2)');
@@ -1379,7 +1426,7 @@ function render() {
 
   drawPost();
   drawOverlayFX();
-  if (state === 'play' || state === 'paused' || state === 'bust' || state === 'over') { drawKidTag(); drawPaint(); drawHUD(); }
+  if (state === 'play' || state === 'paused' || state === 'bust' || state === 'over') { drawKidTag(); drawPaint(); if (state === 'play') drawLaneWarnings(); drawHUD(); }
   if (state === 'menu') drawMenu();
   else if (state === 'paused') drawPaused();
   else if (state === 'bust') drawBust();
@@ -1863,6 +1910,7 @@ requestAnimationFrame(frame);
 window.__game = { get state() { return state; }, get gap() { return gap; }, get score() { return scoreNow(); }, get level() { return level; }, get boss() { return boss; }, get hp() { return bossHP; }, get theme() { return LEVELS[level].name; }, save,
   get kidInTrain() { return !!trainUnder(kid.x, gap) && kid.y < 2.9; }, get kidOnRoof() { return kid.y > 2.9 && !!trainUnder(kid.x, gap); }, get kidY() { return kid.y; },
   giveJetpack() { items.push({ type: 'jetpack', lane: p.lane, x: laneX(p.lane), z: 0.2, y: 1, len: 0 }); }, get jetOn() { return jetOn; }, get missions() { return mis.map(m => m.def.txt(m.n)); },
+  spawn(type, lane, z, extra) { items.push(Object.assign({ type, lane, x: laneX(lane), z, y: 1, len: 0.5 }, extra || {})); },
   start, move, jump, roll: rollAct, setGap: v => { gap = v; }, newGame, toMenu, buy, shopDone, openShop, selectLevel, levelComplete, setWallet: v => { save.wallet = v; }, get shield() { return p.shield; }, get turbo() { return turbo; } };
 })();
 </script>
