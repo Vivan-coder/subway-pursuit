@@ -1906,8 +1906,8 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 
-// tiny hook for automated testing
-window.__game = { get state() { return state; }, get gap() { return gap; }, get score() { return scoreNow(); }, get level() { return level; }, get boss() { return boss; }, get hp() { return bossHP; }, get theme() { return LEVELS[level].name; }, save,
+// test hooks, only available with ?debug in the URL
+if (/[?&]debug/.test(location.search)) window.__game = { get state() { return state; }, get gap() { return gap; }, get score() { return scoreNow(); }, get level() { return level; }, get boss() { return boss; }, get hp() { return bossHP; }, get theme() { return LEVELS[level].name; }, save,
   get kidInTrain() { return !!trainUnder(kid.x, gap) && kid.y < 2.9; }, get kidOnRoof() { return kid.y > 2.9 && !!trainUnder(kid.x, gap); }, get kidY() { return kid.y; },
   giveJetpack() { items.push({ type: 'jetpack', lane: p.lane, x: laneX(p.lane), z: 0.2, y: 1, len: 0 }); }, get jetOn() { return jetOn; }, get missions() { return mis.map(m => m.def.txt(m.n)); },
   spawn(type, lane, z, extra) { items.push(Object.assign({ type, lane, x: laneX(lane), z, y: 1, len: 0.5 }, extra || {})); },
